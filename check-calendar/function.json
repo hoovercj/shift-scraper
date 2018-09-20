@@ -5,8 +5,7 @@
       "type": "timerTrigger",
       "direction": "in",
       "schedule": "0 0 * * * *",
-      "name": "myTimer",
-      "runOnStartup": true
+      "name": "myTimer"
     },
     {
       "name": "currentCalendar",
