@@ -1,0 +1,80 @@
+{
+  "disabled": false,
+  "bindings": [
+    {
+      "route": "calendar",
+      "authLevel": "anonymous",
+      "type": "httpTrigger",
+      "direction": "in",
+      "name": "req",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "type": "http",
+      "direction": "out",
+      "name": "res"
+    },
+    {
+      "name": "currentMonthHtml",
+      "type": "blob",
+      "path": "calendar/1/currentMonthHtml",
+      "direction": "in"
+    },
+    {
+      "name": "oldCurrentMonthHtml",
+      "type": "blob",
+      "path": "calendar/1/oldCurrentMonthHtml",
+      "direction": "out"
+    },
+    {
+      "name": "newCurrentMonthHtml",
+      "type": "blob",
+      "path": "calendar/1/currentMonthHtml",
+      "direction": "out"
+    },
+    {
+      "name": "nextMonthHtml",
+      "type": "blob",
+      "path": "calendar/1/nextMonthHtml",
+      "direction": "in"
+    },
+    {
+      "name": "oldNextMonthHtml",
+      "type": "blob",
+      "path": "calendar/1/oldNextMonthHtml",
+      "direction": "out"
+    },
+    {
+      "name": "newNextMonthHtml",
+      "type": "blob",
+      "path": "calendar/1/nextMonthHtml",
+      "direction": "out"
+    },
+    {
+      "name": "currentCalendar",
+      "type": "blob",
+      "path": "calendar/1/currentCalendar",
+      "direction": "in"
+    },
+    {
+      "name": "oldCalendar",
+      "type": "blob",
+      "path": "calendar/1/oldCalendar",
+      "direction": "out"
+    },
+    {
+      "name": "newCurrentCalendar",
+      "type": "blob",
+      "path": "calendar/1/currentCalendar",
+      "direction": "out"
+    },
+    {
+      "name": "newEvents",
+      "type": "blob",
+      "path": "calendar/1/newEvents",
+      "direction": "out"
+    }
+  ]
+}

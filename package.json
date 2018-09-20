@@ -1,0 +1,46 @@
+{
+  "name": "strava-weather-azure-functions",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Serverless backend for an app which makes it quick and easy to add weather information to Strava activity descriptions",
+  "author": {
+    "name": "Cody Hoover",
+    "url": "https://www.github.com/hoovercj",
+    "email": "npm@codyhoover.com"
+  },
+  "scripts": {
+    "test": "tsc --noEmit -p . && jest --no-cache",
+    "build": "tsc",
+    "watch": "tsc -w",
+    "run": "func host start",
+    "postinstall": "npm run build"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "6.0.0",
+    "request": "2.87.0",
+    "request-promise-native": "1.0.5",
+    "azure-functions-ts-essentials": "1.3.2",
+    "azure-storage": "2.10.0",
+    "typescript": "2.9.2",
+    "jsdom": "12.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "23.1.4",
+    "@types/node": "10.5.2",
+    "@types/jsdom": "11.12.0",
+    "jest": "^21.2.1",
+    "ts-jest": "^21.1.3"
+  },
+  "jest": {
+    "transform": {
+      ".(ts|tsx)": "<rootDir>/node_modules/ts-jest/preprocessor.js"
+    },
+    "testRegex": "(/__tests__/.*|\\.(test|spec))\\.(ts|tsx)$",
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js"
+    ]
+  }
+}
