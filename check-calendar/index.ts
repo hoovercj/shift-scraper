@@ -85,11 +85,12 @@ export async function run(context: Context, req: HttpRequest) {
 
     await login(logger);
 
+    const numberOfMonths = getNumberOfMonths() || DEFAULT_NUMBER_OF_MONTHS;
     let monthYear = dateToMonthYear(new Date());
     const newCalendar: Calendar = {};
     // TODO: Get from config
     const rootUrl = "https://system1.staffbook.dk/";
-    for (let monthIndex = 0; monthIndex < getNumberOfMonths() || DEFAULT_NUMBER_OF_MONTHS; monthIndex++) {
+    for (let i = 0; i < numberOfMonths; i++) {
         const monthHtml = await getCalendarHtmlForMonth(monthYear, logger);
         logger('Parsing calendar...');
         const monthCalendar = parseCalendar(monthHtml, rootUrl)
