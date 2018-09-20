@@ -5,7 +5,7 @@ export const getLoginUrl = (): string => {
     return process.env.LOGIN_URL;
 }
 
-export const getLoginUsername = () => {
+export const getLoginUsername = (): string => {
     return process.env.USER_NAME;
 }
 
@@ -18,9 +18,10 @@ export const getEmailAddresses = (): string[] => {
 }
 
 export const getSendgridApiKey = (): string => {
-    return process.env.LOGIN_URL;
+    return process.env.SENDGRID_API_KEY;
 }
 
-export const getNumberOfMonths = (): string => {
-    return process.env.LOGIN_URL;
+export const getNumberOfMonths = (): number => {
+    const numberOfMonths = Number(process.env.NUMBER_OF_MONTHS);
+    return isNaN(numberOfMonths) ? 0 : numberOfMonths;
 }

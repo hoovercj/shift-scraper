@@ -1,9 +1,10 @@
 import { Context, HttpRequest } from 'azure-functions-ts-essentials';
 
 import * as _request from 'request-promise-native';
-import { parseCalendar, diffCalendars } from '../lib/parseCalendar';
-import { getLoginUsername, getLoginPassword, getLoginUrl } from '../lib/env';
+import { parseCalendar, diffCalendars, Calendar } from '../lib/parseCalendar';
+import { getLoginUsername, getLoginPassword, getLoginUrl, getNumberOfMonths } from '../lib/env';
 
+const DEFAULT_NUMBER_OF_MONTHS = 3;
 var j = _request.jar()
 const request = _request.defaults({jar: j});
 
@@ -16,7 +17,27 @@ interface Logger {
     metric(...message: Array<any>): void;
 }
 
-async function login(logger?: Logger): Promise<void> {
+interface MonthYear {
+    month: number;
+    year: number;
+}
+
+const dateToMonthYear = (date: Date): MonthYear => {
+    return {
+        month: Math.min(date.getUTCMonth() + 1, 12), // Math.min just to be safe
+        year: date.getUTCFullYear(),
+    }
+}
+
+const getNextMonthYear = ({ month, year }: MonthYear): MonthYear => {
+    const isCurrentMonthDecember = month === 12;
+    return {
+        month: isCurrentMonthDecember ? 1 : month + 1,
+        year: isCurrentMonthDecember ? year + 1 : year,
+    }
+}
+
+const login = async (logger?: Logger): Promise<void> => {
     const loginUrl = getLoginUrl();
     // TODO: which of these are actually necessary?
     const loginOptions = {
@@ -32,13 +53,15 @@ async function login(logger?: Logger): Promise<void> {
     };
 
     try {
-        await request.post(loginUrl, loginOptions);
-    } catch (e) {
-        logger.error(e);
+        logger('Logging in');
+        return await request.post(loginUrl, loginOptions);
+    } catch {
+        // Ignore the error. It always returns StatusCodeError 302
+        logger('Logging in completed');
     }
 }
 
-async function getCalendarHtmlForMonth(month: number, year: number, logger?: Logger): Promise<string> {
+async function getCalendarHtmlForMonth({month, year}: MonthYear, logger?: Logger): Promise<string> {
     // TODO: Get from config
     const currentMonthCalendarYear = `https://system1.staffbook.dk/default.asp?pageid=276&sid=26&Day=01&Month=${month}&Year=${year}&View=Month`;
     // TODO: are these necessary?
@@ -46,9 +69,11 @@ async function getCalendarHtmlForMonth(month: number, year: number, logger?: Log
         "referrer":"https://system1.staffbook.dk/default.asp?show=login&sid=26",
         "referrerPolicy":"no-referrer-when-downgrade",
     };
+
     try {
         // Get the new html and calendar first
         // If this throws, don't update the existing values
+        logger(`Requesting calendar html for ${month}-${year}`);
         return await request.get(currentMonthCalendarYear, calendarOptions);
     } catch (e) {
         logger.error(e);
@@ -58,46 +83,38 @@ async function getCalendarHtmlForMonth(month: number, year: number, logger?: Log
 export async function run(context: Context, req: HttpRequest) {
     const logger: Logger = context.log;
 
-    // Get Blob Input Bindings
-    const currentMonthHtmlFromBlob = context.bindings.currentMonthHtml;
-    const nextMonthHtmlFromBlob = context.bindings.nextMonthHtml;
-    const currentCalendarFromBlob = context.bindings.currentCalendar;
-
-    // Figure out dates
-    const today = new Date();
-    const currentMonth = Math.min(today.getUTCMonth() + 1, 12); // Math.min just to be safe
-    const currentYear = today.getUTCFullYear();
-    const isCurrentMonthDecember = currentMonth === 12;
-    const nextMonth = isCurrentMonthDecember ? 1 : currentMonth + 1;
-    const nextYear = isCurrentMonthDecember ? currentYear + 1 : currentYear;
-
-    // Make requests
     await login(logger);
-    const currentMonthHtmlFromUrl = await getCalendarHtmlForMonth(currentMonth, currentYear, logger);
+
+    let monthYear = dateToMonthYear(new Date());
+    const newCalendar: Calendar = {};
     // TODO: Get from config
     const rootUrl = "https://system1.staffbook.dk/";
-    const currentMonthCalendarFromUrl = parseCalendar(currentMonthHtmlFromUrl, rootUrl);
-    const nextMonthHtmlFromUrl = await getCalendarHtmlForMonth(nextMonth, nextYear, logger);
-    const nextMonthCalendarFromUrl = parseCalendar(nextMonthHtmlFromUrl, rootUrl);
+    for (let monthIndex = 0; monthIndex < getNumberOfMonths() || DEFAULT_NUMBER_OF_MONTHS; monthIndex++) {
+        const monthHtml = await getCalendarHtmlForMonth(monthYear, logger);
+        logger('Parsing calendar...');
+        const monthCalendar = parseCalendar(monthHtml, rootUrl)
+        logger('Parsed calendar');
+        // This works because the months should have mutually exclusive dates
+        // so they shouldn't overwrite each other
+        Object.assign(newCalendar, monthCalendar);
 
-    // This works because the months should have mutually exclusive dates
-    // so they shouldn't overwrite each other
-    const currentCalendarFromUrl = Object.assign({}, currentMonthCalendarFromUrl, nextMonthCalendarFromUrl);
+        monthYear = getNextMonthYear(monthYear);
+    }
 
-    // Get the new events by diffing the combined calendars
-    const newEvents = diffCalendars(currentCalendarFromBlob, currentCalendarFromUrl);
+    const currentCalendarFromBlob = context.bindings.currentCalendar;
+
+    logger('Diffing calendars...');
+    const newEvents = diffCalendars(currentCalendarFromBlob, newCalendar);
+    logger('Diffed calendars');
 
     // Write everything to output blobs
-    context.bindings.oldCurrentMonthHtml = currentMonthHtmlFromBlob;
-    context.bindings.oldNextMonthHtml = nextMonthHtmlFromBlob;
+    logger('Writing output...');
     context.bindings.oldCalendar = currentCalendarFromBlob;
-    context.bindings.newCurrentMonthHtml = currentMonthHtmlFromUrl;
-    context.bindings.newNextMonthHtml = nextMonthHtmlFromUrl;
-    context.bindings.newCurrentCalendar = currentCalendarFromUrl;
+    context.bindings.newCurrentCalendar = newCalendar;
     context.bindings.newEvents = newEvents;
+    logger('Output written');
 
     // TODO: Send email with new events
-
     // TODO: Run on a timer instead of an http trigger
     context.res = {
         status: 200,
