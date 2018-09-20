@@ -2,19 +2,11 @@
   "disabled": false,
   "bindings": [
     {
-      "route": "calendar",
-      "authLevel": "anonymous",
-      "type": "httpTrigger",
+      "type": "timerTrigger",
       "direction": "in",
-      "name": "req",
-      "methods": [
-        "get"
-      ]
-    },
-    {
-      "type": "http",
-      "direction": "out",
-      "name": "res"
+      "schedule": "0 0 * * * *",
+      "name": "myTimer",
+      "runOnStartup": true
     },
     {
       "name": "currentCalendar",
@@ -38,6 +30,11 @@
       "name": "newEvents",
       "type": "blob",
       "path": "calendar/1/newEvents",
+      "direction": "out"
+    },
+    {
+      "name": "message",
+      "type": "sendGrid",
       "direction": "out"
     }
   ]

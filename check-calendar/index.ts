@@ -1,84 +1,12 @@
 import { Context, HttpRequest } from 'azure-functions-ts-essentials';
-
 import * as _request from 'request-promise-native';
+
 import { parseCalendar, diffCalendars, Calendar } from '../lib/parseCalendar';
-import { getLoginUsername, getLoginPassword, getLoginUrl, getNumberOfMonths } from '../lib/env';
+import { getLoginUsername, getLoginPassword, getLoginUrl, getNumberOfMonths, getToEmailAddresses, getFromEmailAddress, getEmailSubject, getRootUrl, getCalendarUrl, getUseHtml } from '../lib/env';
 
 const DEFAULT_NUMBER_OF_MONTHS = 3;
 var j = _request.jar()
 const request = _request.defaults({jar: j});
-
-interface Logger {
-    (...message: Array<any>): void;
-    error(...message: Array<any>): void;
-    warn(...message: Array<any>): void;
-    info(...message: Array<any>): void;
-    verbose(...message: Array<any>): void;
-    metric(...message: Array<any>): void;
-}
-
-interface MonthYear {
-    month: number;
-    year: number;
-}
-
-const dateToMonthYear = (date: Date): MonthYear => {
-    return {
-        month: Math.min(date.getUTCMonth() + 1, 12), // Math.min just to be safe
-        year: date.getUTCFullYear(),
-    }
-}
-
-const getNextMonthYear = ({ month, year }: MonthYear): MonthYear => {
-    const isCurrentMonthDecember = month === 12;
-    return {
-        month: isCurrentMonthDecember ? 1 : month + 1,
-        year: isCurrentMonthDecember ? year + 1 : year,
-    }
-}
-
-const login = async (logger?: Logger): Promise<void> => {
-    const loginUrl = getLoginUrl();
-    // TODO: which of these are actually necessary?
-    const loginOptions = {
-        credentials: "include",
-        headers: {},
-        referrer: "https://system1.staffbook.dk/default.asp?show=login&sid=26",
-        referrerPolicy: "no-referrer-when-downgrade",
-        form: {
-            username: getLoginUsername(),
-            password: getLoginPassword(),
-        },
-        mode: "cors",
-    };
-
-    try {
-        logger('Logging in');
-        return await request.post(loginUrl, loginOptions);
-    } catch {
-        // Ignore the error. It always returns StatusCodeError 302
-        logger('Logging in completed');
-    }
-}
-
-async function getCalendarHtmlForMonth({month, year}: MonthYear, logger?: Logger): Promise<string> {
-    // TODO: Get from config
-    const currentMonthCalendarYear = `https://system1.staffbook.dk/default.asp?pageid=276&sid=26&Day=01&Month=${month}&Year=${year}&View=Month`;
-    // TODO: are these necessary?
-    const calendarOptions = {
-        "referrer":"https://system1.staffbook.dk/default.asp?show=login&sid=26",
-        "referrerPolicy":"no-referrer-when-downgrade",
-    };
-
-    try {
-        // Get the new html and calendar first
-        // If this throws, don't update the existing values
-        logger(`Requesting calendar html for ${month}-${year}`);
-        return await request.get(currentMonthCalendarYear, calendarOptions);
-    } catch (e) {
-        logger.error(e);
-    }
-}
 
 export async function run(context: Context, req: HttpRequest) {
     const logger: Logger = context.log;
@@ -88,8 +16,7 @@ export async function run(context: Context, req: HttpRequest) {
     const numberOfMonths = getNumberOfMonths() || DEFAULT_NUMBER_OF_MONTHS;
     let monthYear = dateToMonthYear(new Date());
     const newCalendar: Calendar = {};
-    // TODO: Get from config
-    const rootUrl = "https://system1.staffbook.dk/";
+    const rootUrl = getRootUrl();
     for (let i = 0; i < numberOfMonths; i++) {
         const monthHtml = await getCalendarHtmlForMonth(monthYear, logger);
         logger('Parsing calendar...');
@@ -115,12 +42,131 @@ export async function run(context: Context, req: HttpRequest) {
     context.bindings.newEvents = newEvents;
     logger('Output written');
 
-    // TODO: Send email with new events
-    // TODO: Run on a timer instead of an http trigger
-    context.res = {
-        status: 200,
-        body: "OK",
+    if (Object.keys(newEvents).length > 0) {
+        logger('New Events! Sending email');
+        const email = getEmailForEvents(newEvents);
+        // logger(JSON.stringify(email));
+        context.bindings.message = email;
+    } else {
+        logger('No new events.');
+    }
+};
+
+interface Logger {
+    (...message: Array<any>): void;
+    error(...message: Array<any>): void;
+    warn(...message: Array<any>): void;
+    info(...message: Array<any>): void;
+    verbose(...message: Array<any>): void;
+    metric(...message: Array<any>): void;
+}
+
+interface MonthYear {
+    month: number;
+    year: number;
+}
+
+interface EmailContent { type: 'text/plain' | 'text/html', value: string, }
+interface EmailPersonalization { to: { email: string }[]
+}
+interface Email {
+    personalizations: EmailPersonalization[],
+    from: { email: string },
+    subject: string,
+    content: EmailContent[],
+}
+
+const dateToMonthYear = (date: Date): MonthYear => {
+    return {
+        month: Math.min(date.getUTCMonth() + 1, 12), // Math.min just to be safe
+        year: date.getUTCFullYear(),
+    }
+}
+
+const getNextMonthYear = ({ month, year }: MonthYear): MonthYear => {
+    const isCurrentMonthDecember = month === 12;
+    return {
+        month: isCurrentMonthDecember ? 1 : month + 1,
+        year: isCurrentMonthDecember ? year + 1 : year,
+    }
+}
+
+const login = async (logger?: Logger): Promise<void> => {
+    const loginUrl = getLoginUrl();
+    const loginOptions = {
+        form: {
+            username: getLoginUsername(),
+            password: getLoginPassword(),
+        },
     };
 
-    context.done();
-};
+    try {
+        logger('Logging in');
+        return await request.post(loginUrl, loginOptions);
+    } catch {
+        // Ignore the error. It always returns StatusCodeError 302
+        logger('Logging in completed');
+    }
+}
+
+const getCalendarHtmlForMonth = async ({month, year}: MonthYear, logger?: Logger): Promise<string> => {
+    const currentMonthCalendarYear = `${getCalendarUrl()}&Day=01&Month=${month}&Year=${year}&View=Month`;
+
+    try {
+        // Get the new html and calendar first
+        // If this throws, don't update the existing values
+        logger(`Requesting calendar html for ${month}-${year}`);
+        return await request.get(currentMonthCalendarYear);
+    } catch (e) {
+        logger.error(e);
+    }
+}
+
+const getEmailForEvents = (events: Calendar): Email => {
+    const toEmails = getToEmailAddresses().map(email => {
+        return {
+            email: email
+        };
+    });
+
+    return {
+        personalizations: [{
+            to: toEmails
+        }],
+        from: { email: getFromEmailAddress() },
+        subject: getEmailSubject(),
+        content: [eventsToString(events, getUseHtml())],
+   }
+}
+
+const eventsToString = (events: Calendar, html: boolean): EmailContent => {
+    let content: string = '';
+    for (let date in events) {
+        const eventsForDate = events[date];
+        if (eventsForDate.length > 0) {
+            if (html) {
+                const dateElement = `<p><b>${date}</b></p>`;
+                const eventElements = events[date].map(event => event.html).join('<br>')
+
+                content += `<p>${dateElement}${eventElements}</p></hr>`
+            } else {
+                events[date].forEach(({ antal, date, dayOfWeek, details, link, mangler, name }) => {
+                    const eventString = [
+                        `${date} (${dayOfWeek}): ${name}`,
+                        `${details}`,
+                        `Antal: ${antal} / Mangler: ${mangler}`,
+                        `Link: ${link}`,
+                        `----------------`
+                    ].join('\n\n');
+
+                    content += eventString;
+                });
+            }
+        }
+    }
+
+    return {
+        type: html ? 'text/html' : 'text/plain',
+        value: content,
+    };
+}

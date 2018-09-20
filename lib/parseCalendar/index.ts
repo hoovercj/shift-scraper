@@ -6,12 +6,13 @@ export interface Calendar {
 
 interface CalendarEvent {
     date: string;
-    dayOfweek: string;
+    dayOfWeek: string;
     name: string;
     details: string;
     link: string;
     antal: number;
     mangler: number;
+    html: string;
 }
 
 export const diffCalendars = (oldCalendar: Calendar, newCalendar: Calendar): Calendar => {
@@ -104,11 +105,12 @@ export const parseCalendar = (html: string, baseUrl?: string): Calendar => {
 
                 calendar[date].push({
                     date: date,
-                    dayOfweek: dayOfWeek,
+                    dayOfWeek: dayOfWeek,
                     name: eventNameElement.textContent,
-                    details: eventDetailsElement.textContent.replace(/\s+/, ' ').trim(),
+                    details: eventDetailsElement.innerHTML.replace('<br><span>', ': ').replace('</span>', '').trim(),
                     link: eventElement.href,
-                    ...parseEventTooltip(eventElement.title)
+                    ...parseEventTooltip(eventElement.title),
+                    html: eventSpan.innerHTML,
                 });
             }
         } catch {
