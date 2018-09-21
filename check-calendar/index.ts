@@ -8,7 +8,7 @@ const DEFAULT_NUMBER_OF_MONTHS = 3;
 var j = _request.jar()
 const request = _request.defaults({jar: j});
 
-export async function run(context: Context, req: HttpRequest) {
+export async function run(context: Context, req: HttpRequest): Promise<void> {
     const logger: Logger = context.log;
 
     await login(logger);
@@ -45,11 +45,13 @@ export async function run(context: Context, req: HttpRequest) {
     if (Object.keys(newEvents).length > 0) {
         logger('New Events! Sending email');
         const email = getEmailForEvents(newEvents);
-        // logger(JSON.stringify(email));
+        logger('Email created');
         context.bindings.message = email;
     } else {
         logger('No new events.');
     }
+
+    return Promise.resolve();
 };
 
 interface Logger {
