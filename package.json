@@ -9,7 +9,6 @@
     "email": "npm@codyhoover.com"
   },
   "scripts": {
-    "test": "tsc --noEmit -p . && jest --no-cache",
     "build": "tsc",
     "watch": "tsc -w",
     "run": "func host start",
