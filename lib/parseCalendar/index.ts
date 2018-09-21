@@ -41,16 +41,17 @@ export const diffCalendars = (oldCalendar: Calendar, newCalendar: Calendar): Cal
 
 export const parseEventTooltip = (tooltip: string): { antal: number, mangler: number } => {
     // Example Tooltip Text Antal : 4 Mangler : 1
-    const [ _, antal, mangler ] = /Antal : (\d+) Mangler : (\d+)/.exec(tooltip);
-
-    return {
-        antal: Number(antal),
-        mangler: Number(mangler),
-    };
+    const result = /Antal : (\d+) Mangler : (\d+)/.exec(tooltip);
+    return result && result.length === 3
+        ? {
+            antal: Number(result[1]),
+            mangler: Number(result[2]),
+        }
+        : null;
 }
 
 export const parseCalendar = (html: string, baseUrl?: string): Calendar => {
-    const dom = new JSDOM(html, { url: baseUrl });
+    const dom = new JSDOM(html);
     const days = dom.window.document.getElementsByClassName('CalendarHeader');
 
     const calendar: Calendar = {};
@@ -94,26 +95,52 @@ export const parseCalendar = (html: string, baseUrl?: string): Calendar => {
                 const eventSpan = eventSpans[eventIndex];
 
                 const eventElement: HTMLAnchorElement = eventSpan.firstElementChild as HTMLAnchorElement;
+                const parsedTooltip = (parseEventTooltip(eventElement.title));
+
                 // Available events are wrapped in an anchor tag
-                if (eventElement.tagName !== 'A') {
+                // and have a title attribute set
+                if (eventElement.tagName !== 'A' || !parsedTooltip) {
                     continue;
                 }
 
-                const eventNameElement = eventElement.children[0];
-                // </br>
-                const eventDetailsElement = eventElement.children[2];
+                // Make the relative href absolute
+                eventElement.href = baseUrl + eventElement.href;
+
+                // Convert the tooltip text to elements
+                const { antal, mangler } = parsedTooltip;
+                // Add a break so the tooltip elements appear on their own lines
+                const brElement = dom.window.document.createElement('br');
+                eventElement.appendChild(brElement);
+                // For both antal and mangler, create a span followed by a br
+                const antalElement = dom.window.document.createElement('span');
+                antalElement.textContent = `Antal: ${parsedTooltip.antal}`;
+                const antalBrElement = dom.window.document.createElement('br');
+                eventElement.appendChild(antalElement);
+                eventElement.appendChild(antalBrElement);
+                const manglerElement = dom.window.document.createElement('span');
+                manglerElement.textContent = `Mangler: ${parsedTooltip.mangler}`;
+                const manglerBrElement = dom.window.document.createElement('br');
+                eventElement.appendChild(manglerElement);
+                eventElement.appendChild(manglerBrElement);
+
+                // Extract name and details
+                const eventName = eventElement.children[0].textContent;
+                // [1] = </br>
+                const eventDetails = eventElement.children[2].innerHTML.replace('<br><span>', ': ').replace('</span>', '').trim();
 
                 calendar[date].push({
                     date: date,
                     dayOfWeek: dayOfWeek,
-                    name: eventNameElement.textContent,
-                    details: eventDetailsElement.innerHTML.replace('<br><span>', ': ').replace('</span>', '').trim(),
+                    name: eventName,
+                    details: eventDetails,
                     link: eventElement.href,
-                    ...parseEventTooltip(eventElement.title),
+                    antal,
+                    mangler,
                     html: eventSpan.innerHTML,
                 });
             }
-        } catch {
+        } catch (e) {
+            console.error(e);
             // continue
         }
     }
