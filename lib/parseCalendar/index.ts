@@ -1,5 +1,7 @@
 import { JSDOM } from 'jsdom';
 
+import { Logger } from '../../check-calendar'
+
 export interface Calendar {
     [date: string]: CalendarEvent[];
 }
@@ -50,7 +52,7 @@ export const parseEventTooltip = (tooltip: string): { antal: number, mangler: nu
         : null;
 }
 
-export const parseCalendar = (html: string, baseUrl?: string): Calendar => {
+export const parseCalendar = (html: string, baseUrl?: string, logger?: Logger): Calendar => {
     const dom = new JSDOM(html);
     const days = dom.window.document.getElementsByClassName('CalendarHeader');
 
@@ -73,10 +75,12 @@ export const parseCalendar = (html: string, baseUrl?: string): Calendar => {
             // </br>
             eventTable = day.children[2];
         } else {
+            logger(`Day has incorrect number of children: ${day.outerHTML}`);
             continue;
         }
 
         if (!dateElement || !eventTable) {
+            logger(`Day is missing date element or event table: ${day.outerHTML}`);
             continue;
         }
 

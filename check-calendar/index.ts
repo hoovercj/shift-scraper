@@ -20,7 +20,7 @@ export async function run(context: Context, req: HttpRequest): Promise<void> {
     for (let i = 0; i < numberOfMonths; i++) {
         const monthHtml = await getCalendarHtmlForMonth(monthYear, logger);
         logger('Parsing calendar...');
-        const monthCalendar = parseCalendar(monthHtml, rootUrl)
+        const monthCalendar = parseCalendar(monthHtml, rootUrl, logger)
         logger('Parsed calendar');
         // This works because the months should have mutually exclusive dates
         // so they shouldn't overwrite each other
@@ -54,7 +54,7 @@ export async function run(context: Context, req: HttpRequest): Promise<void> {
     return Promise.resolve();
 };
 
-interface Logger {
+export interface Logger {
     (...message: Array<any>): void;
     error(...message: Array<any>): void;
     warn(...message: Array<any>): void;
