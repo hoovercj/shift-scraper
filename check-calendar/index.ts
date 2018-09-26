@@ -153,8 +153,9 @@ const eventsToString = (events: Calendar, html: boolean): EmailContent => {
                 content += `<p>${dateElement}${eventElements}</p></hr>`
             } else {
                 events[date].forEach(({ antal, date, dayOfWeek, details, link, mangler, name }) => {
+                    const dayOfWeekString = dayOfWeek ? ` (${dayOfWeek})` : '';
                     const eventString = [
-                        `${date} (${dayOfWeek}): ${name}`,
+                        `${date}${dayOfWeekString}: ${name}`,
                         `${details}`,
                         `Antal: ${antal} / Mangler: ${mangler}`,
                         `Link: ${link}`,

@@ -57,18 +57,30 @@ export const parseCalendar = (html: string, baseUrl?: string): Calendar => {
     const calendar: Calendar = {};
 
     for (let daysIndex = 0; daysIndex < days.length; daysIndex++) {
-        let day = days[daysIndex];
-        const dayOfWeekElement = day.children[0];
-        // </br>
-        const dateElement = day.children[2];
-        // </br>
-        const eventTable = day.children[4];
+        let dayOfWeekElement: Element;
+        let dateElement: Element;
+        let eventTable: Element;
 
-        if (!dayOfWeekElement || !dateElement || !eventTable) {
+        let day = days[daysIndex];
+        if (day.children && day.children.length === 5) {
+            dayOfWeekElement = day.children[0];
+            // </br>
+            dateElement = day.children[2];
+            // </br>
+            eventTable = day.children[4];
+        } else if (day.children && day.children.length === 3) {
+            dateElement = day.children[0];
+            // </br>
+            eventTable = day.children[2];
+        } else {
             continue;
         }
 
-        const dayOfWeek = dayOfWeekElement.textContent;
+        if (!dateElement || !eventTable) {
+            continue;
+        }
+
+        const dayOfWeek = dayOfWeekElement && dayOfWeekElement.textContent;
         const date = dateElement.textContent;
 
         if (!calendar[date]) {
